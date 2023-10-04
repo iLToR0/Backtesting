@@ -7,8 +7,8 @@ class ThreeCandlePatternStrategy(bt.Strategy):
         self.resistencias = []  # Lista para almacenar los picos de las resistencias y sus marcas de tiempo
         self.resistenciaRota = None
         self.resistenciaeliminar = []
-        self.stop_loss_puntos = 1
-        self.take_profit_puntos = 1
+        self.stop_loss_puntos = 2
+        self.take_profit_puntos = 2
         self.is_trade_open = False  #
         self.valorContrato = 20
         
@@ -26,28 +26,31 @@ class ThreeCandlePatternStrategy(bt.Strategy):
         if shadow_high2 > shadow_high1 and shadow_high2 > shadow_high3:
             # Almacenar el pico high de la vela central en la lista
             self.resistencias.append(shadow_high2)
-
-        for resistencia in self.resistencias.copy():
-            if self.data.high[-1] > resistencia and self.data.close[-1] <= resistencia:
-                self.resistenciaeliminar.append(resistencia)
-            elif self.data.high[-1] > resistencia and self.data.close[-1] > resistencia:
-                if self.data.close[0] >= resistencia:
+        if not self.is_trade_open:
+            for resistencia in self.resistencias.copy():
+                if self.data.high[-1] > resistencia and self.data.close[-1] <= resistencia:
                     self.resistenciaeliminar.append(resistencia)
-                elif self.data.close[0] < resistencia:
-                    self.sell()
-                    
-                    stop_loss_price = self.data.close[0] + (self.stop_loss_puntos *  self.valorContrato)  # Calcula el precio de stop loss en dólares reales
-                    take_profit_price = self.data.close[0] - (self.take_profit_puntos *  self.valorContrato)  # Calcula el precio de take profit en dólares reales
+                elif self.data.high[-1] > resistencia and self.data.close[-1] > resistencia:
+                    if self.data.close[0] >= resistencia:
+                        self.resistenciaeliminar.append(resistencia)
+                    elif self.data.close[0] < resistencia:
+                        self.sell()
+                        print(self.data.datetime[0])
+                        self.is_trade_open = True
+                        stop_loss_price = self.data.open[1] + 20  # Calcula el precio de stop loss en dólares reales
+                        take_profit_price = self.data.open[1] - 20  # Calcula el precio de take profit en dólares reales
                        
-                    if not self.is_trade_open:
-                        self.stop_loss_order = self.buy(
-                            exectype=bt.Order.Stop, price=stop_loss_price)
-                        self.take_profit_order = self.buy(
-                            exectype=bt.Order.Limit, price=take_profit_price)
                         
-        for resistencia in self.resistenciaeliminar:
-            if resistencia in self.resistencias:
-                self.resistencias.remove(resistencia)
+                        self.stop_loss_order = self.buy(
+                                exectype=bt.Order.Stop, price=stop_loss_price)
+
+
+                        self.take_profit_order = self.buy(
+                                exectype=bt.Order.Limit, price=take_profit_price)
+                        
+            for resistencia in self.resistenciaeliminar:
+                if resistencia in self.resistencias:
+                    self.resistencias.remove(resistencia)
 
     def notify_trade(self, trade):
         if trade.isclosed:
@@ -89,5 +92,10 @@ if __name__ == "__main__":
     print("Picos detectados:")
     for peak in cerebro.runstrats[0][0].resistencias:
         print(f"Pico: {peak:.2f}")
+
+        plotlines = dict(
+    buy=dict(marker='^', markersize=8.0, color='lime', fillstyle='full'),
+    sell=dict(marker='v', markersize=8.0, color='red', fillstyle='full')
+)
 
     cerebro.plot(style="candlestick")
