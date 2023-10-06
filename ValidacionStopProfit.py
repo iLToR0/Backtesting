@@ -3,13 +3,14 @@ import pandas as pd
 import datetime as dt
 
 class ThreeCandlePatternStrategy(bt.Strategy):
+   
     def __init__(self):
         self.resistencias = []  # Lista para almacenar los picos de las resistencias y sus marcas de tiempo
-        self.resistenciaRota = None
         self.resistenciaeliminar = []
-        self.main_order = None  # Para realizar un seguimiento de la orden principal
-        self.low_side_order = None  # Para realizar un seguimiento de la orden de stop loss
-        self.high_side_order = None
+        self.valor_contrato = 20
+        self.StopLoss = 1
+        self.TakeProfit = 1
+        
         
         
 
@@ -39,10 +40,9 @@ class ThreeCandlePatternStrategy(bt.Strategy):
 
                                 self.sell()
                                 
-                                stop_loss_price = self.data.open[1] + 20  # Calcula el precio de stop loss en dólares reales
-                                take_profit_price = self.data.open[1] - 20  # Calcula el precio de take profit en dólares reales
+                                
+                                
                        
-                        
                                
                           
 
@@ -63,8 +63,8 @@ class ThreeCandlePatternStrategy(bt.Strategy):
                 print(f"Venta ejecutada - Precio: {order.executed.price}, Comisión: {order.executed.comm}")
             if order.issell():
 
-                oco = self.buy(exectype=bt.Order.Stop,price=order.executed.price + 20)
-                self.buy(oco=oco, exectype=bt.Order.Limit,price=order.executed.price - 20)
+                oco = self.buy(exectype=bt.Order.Stop,price=order.executed.price + (self.StopLoss * self.valor_contrato) )
+                self.buy(oco=oco, exectype=bt.Order.Limit,price=order.executed.price - (self.TakeProfit * self.valor_contrato))
                 
 
                
@@ -99,8 +99,10 @@ if __name__ == "__main__":
 
     # Agregar la estrategia al cerebro
     cerebro.addstrategy(ThreeCandlePatternStrategy)
+    broker = bt.brokers.BrokerBack(checksubmit=False)
     
     cerebro.broker.setcash(10000.0)
+    cerebro.setbroker(broker)
 
     # Ejecutar el backtest
     cerebro.run()
