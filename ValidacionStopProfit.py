@@ -7,16 +7,16 @@ class ThreeCandlePatternStrategy(bt.Strategy):
         self.resistencias = []  # Lista para almacenar los picos de las resistencias y sus marcas de tiempo
         self.resistenciaRota = None
         self.resistenciaeliminar = []
-        self.stop_loss_puntos = 2
-        self.take_profit_puntos = 2
-        self.is_trade_open = False  #
-        self.valorContrato = 20
+        self.main_order = None  # Para realizar un seguimiento de la orden principal
+        self.low_side_order = None  # Para realizar un seguimiento de la orden de stop loss
+        self.high_side_order = None
+        
         
 
     def next(self):
         if len(self.data) < 3:
             return
-
+        
         # Obtener las sombras (mechas) de las tres velas más recientes
         shadow_high1, shadow_low1 = self.data.high[-3], self.data.low[-3]
         shadow_high2, shadow_low2 = self.data.high[-2], self.data.low[-2]
@@ -26,35 +26,49 @@ class ThreeCandlePatternStrategy(bt.Strategy):
         if shadow_high2 > shadow_high1 and shadow_high2 > shadow_high3:
             # Almacenar el pico high de la vela central en la lista
             self.resistencias.append(shadow_high2)
-        if not self.is_trade_open:
+        if not self.position:
             for resistencia in self.resistencias.copy():
+                    
                 if self.data.high[-1] > resistencia and self.data.close[-1] <= resistencia:
                     self.resistenciaeliminar.append(resistencia)
                 elif self.data.high[-1] > resistencia and self.data.close[-1] > resistencia:
                     if self.data.close[0] >= resistencia:
                         self.resistenciaeliminar.append(resistencia)
                     elif self.data.close[0] < resistencia:
-                        self.sell()
-                        print(self.data.datetime[0])
-                        self.is_trade_open = True
-                        stop_loss_price = self.data.open[1] + 20  # Calcula el precio de stop loss en dólares reales
-                        take_profit_price = self.data.open[1] - 20  # Calcula el precio de take profit en dólares reales
+                        
+
+                                self.sell()
+                                
+                                stop_loss_price = self.data.open[1] + 20  # Calcula el precio de stop loss en dólares reales
+                                take_profit_price = self.data.open[1] - 20  # Calcula el precio de take profit en dólares reales
                        
                         
-                        self.stop_loss_order = self.buy(
-                                exectype=bt.Order.Stop, price=stop_loss_price)
+                               
+                          
 
-
-                        self.take_profit_order = self.buy(
-                                exectype=bt.Order.Limit, price=take_profit_price)
-                        
             for resistencia in self.resistenciaeliminar:
                 if resistencia in self.resistencias:
                     self.resistencias.remove(resistencia)
 
-    def notify_trade(self, trade):
-        if trade.isclosed:
-            self.is_trade_open = False           
+
+    def notify_order(self, order):
+        s = order.Status
+        print(s[order.status])
+
+        if order.status in [order.Completed]:
+            print(order.issell())
+            if order.isbuy():
+                print(f"Compra ejecutada - Precio: {order.executed.price}, Comisión: {order.executed.comm}")
+            elif order.issell():
+                print(f"Venta ejecutada - Precio: {order.executed.price}, Comisión: {order.executed.comm}")
+            if order.issell():
+
+                oco = self.buy(exectype=bt.Order.Stop,price=order.executed.price + 20)
+                self.buy(oco=oco, exectype=bt.Order.Limit,price=order.executed.price - 20)
+                
+
+               
+
 
 if __name__ == "__main__":
     cerebro = bt.Cerebro()
@@ -86,16 +100,16 @@ if __name__ == "__main__":
     # Agregar la estrategia al cerebro
     cerebro.addstrategy(ThreeCandlePatternStrategy)
     
+    cerebro.broker.setcash(10000.0)
+
     # Ejecutar el backtest
     cerebro.run()
-
+    
+   
     print("Picos detectados:")
     for peak in cerebro.runstrats[0][0].resistencias:
         print(f"Pico: {peak:.2f}")
 
-        plotlines = dict(
-    buy=dict(marker='^', markersize=8.0, color='lime', fillstyle='full'),
-    sell=dict(marker='v', markersize=8.0, color='red', fillstyle='full')
-)
+
 
     cerebro.plot(style="candlestick")
